@@ -121,5 +121,3 @@ This approach follows **Generative AI principles** where deviations from learned
 * Generative AI for Anomaly Detection
 
 
-
-Cybersecurity | Digital Twins | AI/ML
