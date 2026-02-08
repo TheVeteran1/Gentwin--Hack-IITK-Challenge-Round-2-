@@ -1,7 +1,5 @@
-# Gentwin---GenAI-Driven-Digital-Twin-for-ICS-Cybersecurity-Hack-IITK-Challenge-Round-2-
+# Gentwin---GenAI-Driven-Digital-Twin-for-ICS-Cybersecurity
 
-
-# GenTwin: Intelligent Digital Twin for Industrial Cyber Attack Detection
 
 ## Overview
 
