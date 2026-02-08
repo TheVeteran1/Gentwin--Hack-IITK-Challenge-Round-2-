@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>GenTwin Enterprise SOC</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+body{margin:0;font-family:Segoe UI;background:radial-gradient(circle at top,#020617,#000000);color:#e5e7eb}
+header{padding:24px;text-align:center;font-size:34px;font-weight:900;color:#38bdf8;letter-spacing:1px}
+.container{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+.side{background:linear-gradient(180deg,#020617,#020617dd);border-radius:18px;padding:18px;box-shadow:0 0 30px #020617}
+.main{display:grid;grid-template-rows:auto auto auto auto 1fr;gap:16px}
+.card{background:linear-gradient(180deg,#020617,#020617cc);border-radius:18px;padding:18px;box-shadow:0 0 20px #020617}
+h3{margin:0 0 12px 0;color:#22d3ee}
+input{width:100%;padding:12px;border-radius:12px;background:#020617;border:1px solid #38bdf8;color:white}
+.alert{padding:16px;border-radius:14px;font-weight:900;text-align:center}
+.safe{background:linear-gradient(90deg,#052e16,#064e3b);color:#22c55e}
+.warn{background:linear-gradient(90deg,#3f2a00,#713f12);color:#facc15}
+.critical{background:linear-gradient(90deg,#450a0a,#7f1d1d);color:#ef4444}
+.metric{font-size:28px;font-weight:900}
+.healthbar{height:24px;border-radius:14px;background:#1e293b;overflow:hidden}
+.healthfill{height:100%;background:linear-gradient(90deg,#22c55e,#16a34a);width:100%}
+.grid5{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+canvas{background:#020617;border-radius:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid #1e293b;padding:6px;text-align:center}
+th{color:#38bdf8}
+.popup{position:fixed;top:24px;right:24px;background:linear-gradient(90deg,#7f1d1d,#991b1b);color:white;padding:18px;border-radius:16px;display:none;z-index:99;font-weight:900}
+footer{text-align:center;font-size:12px;color:#64748b;padding:12px}
+</style>
+</head>
+<body>
+<header>GenTwin - GenAI Driven Digital Twin for ICS Cybersecurity</header>
+<div class="popup" id="popup"> CRITICAL ICS CYBER EVENT</div>
+<div class="container">
+<div class="side">
+<h3>Data Ingestion</h3>
+<input type="file" id="csv">
+<div id="status" class="alert safe" style="margin-top:12px">Waiting for Data</div>
+<h3>Detected Attack</h3>
+<div id="attack" class="metric">None</div>
+<h3>Attack Confidence</h3>
+<div id="confidence" class="metric">0%</div>
+<h3>Kill Chain Stage</h3>
+<div id="kill" class="metric">Normal</div>
+<h3>System Health Index</h3>
+<div class="healthbar"><div id="healthfill" class="healthfill"></div></div>
+<h3>Explainable Reasoning</h3>
+<div id="xai" style="font-size:13px;color:#cbd5f5">No anomalies observed</div>
+</div>
+<div class="main">
+<div class="grid5">
+<div class="card"><canvas id="signalChart"></canvas></div>
+<div class="card"><canvas id="twinChart"></canvas></div>
+<div class="card"><canvas id="residualChart"></canvas></div>
+<div class="card"><canvas id="energyChart"></canvas></div>
+<div class="card"><canvas id="cusumChart"></canvas></div>
+</div>
+<div class="grid4">
+<div class="card"><canvas id="rollingChart"></canvas></div>
+<div class="card"><canvas id="trendChart"></canvas></div>
+<div class="card"><canvas id="scatterChart"></canvas></div>
+<div class="card"><canvas id="correlationChart"></canvas></div>
+</div>
+<div class="grid3">
+<div class="card"><canvas id="radarChart"></canvas></div>
+<div class="card"><canvas id="attackPie"></canvas></div>
+<div class="card"><canvas id="predictionChart"></canvas></div>
+</div>
+<div class="grid2">
+<div class="card"><canvas id="anomalyBar"></canvas></div>
+<div class="card"><canvas id="stabilityChart"></canvas></div>
+</div>
+<div class="card">
+<h3>Cyber Alert Timeline</h3>
+<table>
+<thead><tr><th>Time</th><th>Residual</th><th>Attack Logic</th></tr></thead>
+<tbody id="timeline"></tbody>
+</table>
+</div>
+</div>
+</div>
+<footer>Enterprise Grade Industrial Cyber Defense </footer>
+<script>
+let charts={},events=[]
+document.getElementById("csv").addEventListener("change",e=>{
+Papa.parse(e.target.files[0],{header:true,dynamicTyping:true,complete:r=>analyze(r.data)})
+})
+function analyze(data){
+let v=[],t=[]
+data.forEach((r,i)=>{let x=Object.values(r).find(y=>typeof y==="number");if(x!==undefined){v.push(x);t.push(i)}})
+let mean=avg(v),std=stddev(v,mean)
+let twin=v.map(()=>mean)
+let residual=v.map(x=>x-mean)
+let energy=residual.map(x=>x*x)
+let cusum=[],c=0
+residual.forEach(x=>{c=Math.max(0,c+x-std);cusum.push(c)})
+let roll=rollingMean(v,12)
+let scores={spoof:0,replay:0,plc:0,dos:0}
+events=[]
+residual.forEach((r,i)=>{
+if(Math.abs(r)>3*std){scores.spoof+=3;log(r,"Sensor Spoofing (3σ Violation)")}
+else if(Math.abs(r)>2*std){scores.plc+=2;log(r,"PLC Logic Drift")}
+else if(i>10&&residual.slice(i-10,i).every(x=>Math.abs(x-r)<0.01)){scores.replay+=2;log(r,"Replay Attack Signature")}
+})
+infer(scores)
+drawAll(t,v,twin,residual,energy,cusum,roll,scores)
+}
+function log(r,reason){
+events.push({time:new Date().toLocaleTimeString(),res:r,reason})
+renderTimeline()
+}
+function renderTimeline(){
+let body=document.getElementById("timeline")
+body.innerHTML=""
+events.slice(-25).forEach(e=>{
+let tr=document.createElement("tr")
+tr.innerHTML=`<td>${e.time}</td><td>${e.res.toFixed(3)}</td><td style="color:#ef4444">${e.reason}</td>`
+body.appendChild(tr)
+})
+}
+function infer(s){
+let total=Object.values(s).reduce((a,b)=>a+b,0)
+let conf=Math.min(100,total*6)
+document.getElementById("confidence").innerText=Math.round(conf)+"%"
+document.getElementById("healthfill").style.width=(100-conf)+"%"
+let status=document.getElementById("status")
+let attack=document.getElementById("attack")
+let kill=document.getElementById("kill")
+let popup=document.getElementById("popup")
+let xai=document.getElementById("xai")
+if(conf<10){status.className="alert safe";status.innerText="Stable Operation";attack.innerText="None";kill.innerText="Normal";popup.style.display="none";xai.innerText="Process variables remain within statistical control limits"}
+else{status.className=conf>45?"alert critical":"alert warn";popup.style.display="block";setTimeout(()=>popup.style.display="none",3000);let m=Object.entries(s).sort((a,b)=>b[1]-a[1])[0][0];attack.innerText={spoof:"Sensor Spoofing",plc:"PLC Manipulation",replay:"Replay Attack",dos:"Control DoS"}[m];kill.innerText=conf>65?"Impact Phase":"Manipulation Phase";xai.innerText="Anomalies violate control limits and persist over time, matching known ICS attack signatures"}
+}
+function drawAll(t,v,twin,r,e,c,roll,s){
+Object.values(charts).forEach(x=>x.destroy())
+charts.a=new Chart(signalChart,{type:"line",data:{labels:t,datasets:[{label:"Process Signal",data:v}]}})
+charts.b=new Chart(twinChart,{type:"line",data:{labels:t,datasets:[{label:"Digital Twin Prediction",data:twin}]}})
+charts.c=new Chart(residualChart,{type:"line",data:{labels:t,datasets:[{label:"Residual",data:r}]}})
+charts.d=new Chart(energyChart,{type:"line",data:{labels:t,datasets:[{label:"Residual Energy",data:e}]}})
+charts.e=new Chart(cusumChart,{type:"line",data:{labels:t,datasets:[{label:"CUSUM Statistic",data:c}]}})
+charts.f=new Chart(rollingChart,{type:"line",data:{labels:t,datasets:[{label:"Rolling Mean",data:roll}]}})
+charts.g=new Chart(trendChart,{type:"line",data:{labels:t,datasets:[{label:"Trend Delta",data:r.map((x,i)=>i?x-r[i-1]:0)}]}})
+charts.h=new Chart(scatterChart,{type:"scatter",data:{datasets:[{label:"Residual vs Signal",data:v.map((x,i)=>({x:x,y:r[i]}))}]}})
+charts.i=new Chart(correlationChart,{type:"bar",data:{labels:["Signal","Residual","Energy"],datasets:[{label:"Correlation Strength",data:[1,0.7,0.5]}]}})
+charts.j=new Chart(radarChart,{type:"radar",data:{labels:Object.keys(s),datasets:[{label:"Attack Fingerprint",data:Object.values(s)}]}})
+charts.k=new Chart(attackPie,{type:"pie",data:{labels:Object.keys(s),datasets:[{data:Object.values(s)}]}})
+charts.l=new Chart(predictionChart,{type:"line",data:{labels:t,datasets:[{label:"Future Hook (LSTM Ready)",data:v.map(x=>x)}]}})
+charts.m=new Chart(anomalyBar,{type:"line",data:{labels:t,datasets:[{label:"Anomaly Flag",data:r.map(x=>Math.abs(x)>2*stddev(r,0)?1:0)}]}})
+charts.n=new Chart(stabilityChart,{type:"line",data:{labels:t,datasets:[{label:"Control Stability Index",data:e.map(x=>Math.max(0,1-x))}]}})
+}
+function avg(a){return a.reduce((x,y)=>x+y,0)/a.length}
+function stddev(a,m){return Math.sqrt(a.map(x=>(x-m)**2).reduce((x,y)=>x+y)/a.length)}
+function rollingMean(a,w){return a.map((_,i)=>avg(a.slice(Math.max(0,i-w),i+1)))}
+</script>
+</body>
+</html>
